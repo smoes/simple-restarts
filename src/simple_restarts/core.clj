@@ -48,14 +48,14 @@
   (first (filter (fn [restart] (= (restart-name restart) name)) restarts)))
 
 
-(defn restart-case-catch [e restarts]
+(defn restart-case-catch [e available-restarts]
   (if (restart-invocation-exception? e)
-    (let [res     (exception-identifier (ex-data e))
-          name    (restart-invocation-restart-name res)
-          params  (restart-invocation-params res)
-          restart (find-restart restarts name)]
-      (if restart
-        (apply (restart-invocation-function restart) params)
+    (let [handler-result   (:handler-result (ex-data e))
+          restart-name     (restart-invocation-restart-name handler-result)
+          restart-params   (restart-invocation-params handler-result)]
+
+      (if-let [restart (find-restart available-restarts restart-name)]
+        (apply (restart-invocation-function restart) restart-params)
         (throw e)))
     (throw e)))
 
@@ -75,12 +75,12 @@
 
 
 (defn fire-condition [condition]
-  (let [condition-identifier (condition-identifier condition)
-        handler (condition-handler condition-identifier)
-        res (apply handler (condition-params condition))]
-    (if (restart-invocation? res)
-      (throw (ex-info "" {:type exception-identifier
-                          exception-identifier res}))
+  (let [handler        (-> condition condition-identifier condition-handler)
+        params         (condition-params condition)
+        handler-result (apply handler params)]
+    (if (restart-invocation? handler-result)
+      (throw (ex-info "" {:type           exception-identifier
+                          :handler-result handler-result}))
       (throw (ex-info "No restart invocation returned" {:handler handler})))))
 
 
