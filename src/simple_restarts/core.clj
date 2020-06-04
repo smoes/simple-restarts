@@ -4,6 +4,8 @@
 
 (def ^:dynamic *handlers* {})
 
+(def exception-identifier ::restart-invocation)
+
 
 (rec/define-record-type Restart
   (restart n invocation-function) restart?
@@ -40,7 +42,7 @@
 
 
 (defn restart-invocation-exception? [e]
-  (= (:type (ex-data e)) :restart-invocation))
+  (= (:type (ex-data e)) exception-identifier))
 
 (defn find-restart [restarts name]
   (first (filter (fn [restart] (= (restart-name restart) name)) restarts)))
@@ -48,7 +50,7 @@
 
 (defn restart-case-catch [e restarts]
   (if (restart-invocation-exception? e)
-    (let [res     (:restart-invocation (ex-data e))
+    (let [res     (exception-identifier (ex-data e))
           name    (restart-invocation-restart-name res)
           params  (restart-invocation-params res)
           restart (find-restart restarts name)]
@@ -77,8 +79,8 @@
         handler (condition-handler condition-identifier)
         res (apply handler (condition-params condition))]
     (if (restart-invocation? res)
-      (throw (ex-info "" {:type :restart-invocation
-                          :restart-invocation res}))
+      (throw (ex-info "" {:type exception-identifier
+                          exception-identifier res}))
       (throw (ex-info "No restart invocation returned" {:handler handler})))))
 
 
